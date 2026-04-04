@@ -45,7 +45,7 @@ Uses `.slnx` (XML solution format). No `global.json`, `Directory.Build.props`, o
 
 .NET 10 INI-style config file parser with a `Microsoft.Extensions.Configuration` integration.
 
-All types in the core library are in the `sINI` namespace. Internal types (`State`, `SpecialChars`) are exposed to `sINI.Benchmarks` and `sINI.Tests` via `InternalsVisibleTo`.
+All types in the core library are in the `sINI` namespace. Internal types (`State`, `SpecialChars`) are exposed to `sINI.Tests` via `InternalsVisibleTo`.
 
 ### Core parser (`src/sINI`)
 

@@ -5,7 +5,6 @@ namespace sINI;
 
 public static class ConfigParser
 {
-
 	public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Parse(string content)
 		=> Parse(content.AsSpan());
 
