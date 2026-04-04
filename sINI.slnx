@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/sINI/sINI.csproj" />
+    <Project Path="src/sINI.Configuration/sINI.Configuration.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/sINI.Sample.Parser/sINI.Sample.Parser.csproj" />
+    <Project Path="samples/sINI.Sample.Configuration/sINI.Sample.Configuration.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/sINI.Benchmarks/sINI.Benchmarks.csproj" />
+  </Folder>
+</Solution>

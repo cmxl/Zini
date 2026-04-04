@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "PowerShell(dotnet new classlib:*)",
+      "PowerShell(dotnet build:*)",
+      "PowerShell(dotnet run:*)",
+      "PowerShell(dotnet add:*)",
+      "PowerShell(dotnet package search:*)",
+      "PowerShell(Remove-Item:*)",
+      "PowerShell(dotnet sln:*)",
+      "PowerShell(New-Item:*)",
+      "PowerShell(Copy-Item:*)",
+      "PowerShell(Rename-Item:*)",
+      "PowerShell(dotnet new slnx:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)"
+    ]
+  }
+}
