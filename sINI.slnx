@@ -7,6 +7,9 @@
     <Project Path="samples/sINI.Sample.Parser/sINI.Sample.Parser.csproj" />
     <Project Path="samples/sINI.Sample.Configuration/sINI.Sample.Configuration.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/sINI.Tests/sINI.Tests.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/sINI.Benchmarks/sINI.Benchmarks.csproj" />
   </Folder>

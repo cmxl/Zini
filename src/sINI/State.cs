@@ -1,3 +1,5 @@
+namespace sINI;
+
 internal enum State
 {
 	/// <summary>
@@ -6,7 +8,7 @@ internal enum State
 	Data,
 	/// <summary>
 	/// Opening bracket of a section, e.g. [User]
-	/// </summary>	
+	/// </summary>
 	ConfigSectionOpen,
 	/// <summary>
 	/// Closing bracket of a section, e.g. [User]

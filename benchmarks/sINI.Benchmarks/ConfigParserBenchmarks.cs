@@ -1,11 +1,14 @@
 using System.Text;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Order;
 using IniParser.Model;
 using IniParser.Parser;
+using sINI;
 
 [MemoryDiagnoser]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
+[GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 public class ConfigParserBenchmarks
 {
 	private string _smallConfig = null!;
@@ -26,43 +29,31 @@ public class ConfigParserBenchmarks
 
 	// --- Small config (typical single-component config) ---
 
-	[Benchmark(Description = "Small - SIMD")]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Small_Simd()
+	[Benchmark(Description = "sINI"), BenchmarkCategory("Small")]
+	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Small_sINI()
 		=> ConfigParser.Parse(_smallConfig);
 
-	[Benchmark(Description = "Small - Original", Baseline = true)]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Small_Original()
-		=> ConfigParserOriginal.Parse(_smallConfig);
-
-	[Benchmark(Description = "Small - ini-parser")]
+	[Benchmark(Description = "ini-parser", Baseline = true), BenchmarkCategory("Small")]
 	public IniData Small_IniParser()
 		=> _iniParser.Parse(_smallConfig);
 
 	// --- Medium config (realistic application config) ---
 
-	[Benchmark(Description = "Medium - SIMD")]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Medium_Simd()
+	[Benchmark(Description = "sINI"), BenchmarkCategory("Medium")]
+	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Medium_sINI()
 		=> ConfigParser.Parse(_mediumConfig);
 
-	[Benchmark(Description = "Medium - Original")]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Medium_Original()
-		=> ConfigParserOriginal.Parse(_mediumConfig);
-
-	[Benchmark(Description = "Medium - ini-parser")]
+	[Benchmark(Description = "ini-parser", Baseline = true), BenchmarkCategory("Medium")]
 	public IniData Medium_IniParser()
 		=> _iniParser.Parse(_mediumConfig);
 
 	// --- Large config (stress test) ---
 
-	[Benchmark(Description = "Large - SIMD")]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Large_Simd()
+	[Benchmark(Description = "sINI"), BenchmarkCategory("Large")]
+	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Large_sINI()
 		=> ConfigParser.Parse(_largeConfig);
 
-	[Benchmark(Description = "Large - Original")]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Large_Original()
-		=> ConfigParserOriginal.Parse(_largeConfig);
-
-	[Benchmark(Description = "Large - ini-parser")]
+	[Benchmark(Description = "ini-parser", Baseline = true), BenchmarkCategory("Large")]
 	public IniData Large_IniParser()
 		=> _iniParser.Parse(_largeConfig);
 

@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="sINI.Benchmarks" />
+    <InternalsVisibleTo Include="sINI.Tests" />
   </ItemGroup>
 
 </Project>

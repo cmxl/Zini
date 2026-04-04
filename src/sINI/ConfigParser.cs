@@ -1,32 +1,30 @@
-using System.Buffers;
+using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
+
+namespace sINI;
 
 public static class ConfigParser
 {
-	// SearchValues for SIMD-accelerated bulk scanning
-	private static readonly SearchValues<char> s_whitespace = SearchValues.Create([' ', '\t', '\r', '\n']);
-	private static readonly SearchValues<char> s_sectionEnd = SearchValues.Create([']', '#', ';']);
-	private static readonly SearchValues<char> s_keyDelimiters = SearchValues.Create(['=', '\n', '#', ';']);
-	private static readonly SearchValues<char> s_valueDelimiters = SearchValues.Create(['\n', '"', '#', ';']);
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Parse(string content)
+		=> Parse(content.AsSpan());
+
 	public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Parse(ReadOnlySpan<char> content)
 	{
 		var ctx = new ParseContext();
 		ctx.Execute(content);
 
-		// Remove the global section if it ended up empty
-		if (ctx.Config.TryGetValue(string.Empty, out var global) && global.Count == 0)
-			ctx.Config.Remove(string.Empty);
-
-		return ctx.Config;
+		// Freeze all dictionaries for true immutability
+		return ctx.Config.ToFrozenDictionary(
+			kvp => kvp.Key,
+			kvp => (IReadOnlyDictionary<string, string>)kvp.Value.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase),
+			StringComparer.OrdinalIgnoreCase);
 	}
 
 	private ref struct ParseContext
 	{
-		// Store inner dicts as IReadOnlyDictionary directly — avoids the .ToDictionary() copy at the end
-		public Dictionary<string, IReadOnlyDictionary<string, string>> Config;
-		private Dictionary<string, string> _sectionDict;
+		public Dictionary<string, Dictionary<string, string>> Config;
+		private Dictionary<string, string>? _sectionDict;
 		private string _currentSection;
 		private string? _currentKey;
 
@@ -34,8 +32,6 @@ public static class ConfigParser
 		{
 			Config = new(StringComparer.OrdinalIgnoreCase);
 			_currentSection = string.Empty;
-			_sectionDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-			Config[_currentSection] = _sectionDict;
 		}
 
 		public void Execute(ReadOnlySpan<char> content)
@@ -44,6 +40,7 @@ public static class ConfigParser
 			var i = 0;
 			var bufferStart = 0;
 			var inQuotes = false;
+			var wasQuoted = false;
 
 			while (i < content.Length)
 			{
@@ -52,7 +49,7 @@ public static class ConfigParser
 					case State.Data:
 					{
 						// SIMD: skip all whitespace in bulk
-						var offset = content[i..].IndexOfAnyExcept(s_whitespace);
+						var offset = content[i..].IndexOfAnyExcept(SpecialChars.Whitespace);
 						if (offset < 0) goto done;
 						i += offset;
 
@@ -79,18 +76,27 @@ public static class ConfigParser
 					case State.ConfigSectionOpen:
 					{
 						// SIMD: jump straight to ] or comment char
-						var offset = content[i..].IndexOfAny(s_sectionEnd);
-						if (offset < 0) goto done;
+						var offset = content[i..].IndexOfAny(SpecialChars.SectionEnd);
+						if (offset < 0)
+							throw new FormatException("Unterminated section header — expected ']'");
+
 						i += offset;
 
 						if (SpecialChars.Comment.Contains(content[i]))
 							throw new FormatException($"Invalid character '{content[i]}' in section name");
 
-						_currentSection = content[bufferStart..i].Trim().ToString();
-						if (Config.TryGetValue(_currentSection, out var existing))
-							_sectionDict = (Dictionary<string, string>)existing;
+						var sectionSpan = content[bufferStart..i].Trim();
+						var lookup = Config.GetAlternateLookup<ReadOnlySpan<char>>();
+						if (lookup.TryGetValue(sectionSpan, out var existing))
+						{
+							// _currentSection is intentionally not updated here — it's only
+							// read in FlushValue when _sectionDict is null, which can't happen
+							// after a cache hit since we set _sectionDict below.
+							_sectionDict = existing;
+						}
 						else
 						{
+							_currentSection = sectionSpan.ToString();
 							_sectionDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 							Config[_currentSection] = _sectionDict;
 						}
@@ -114,7 +120,7 @@ public static class ConfigParser
 					case State.Key:
 					{
 						// SIMD: jump to = or line end or comment
-						var offset = content[i..].IndexOfAny(s_keyDelimiters);
+						var offset = content[i..].IndexOfAny(SpecialChars.KeyDelimiters);
 						if (offset < 0) goto done;
 						i += offset;
 
@@ -124,6 +130,7 @@ public static class ConfigParser
 							_currentKey = content[bufferStart..i].Trim().ToString();
 							i++;
 							bufferStart = i;
+							wasQuoted = false;
 							state = State.Value;
 						}
 						else if (c == '\n')
@@ -147,23 +154,56 @@ public static class ConfigParser
 						{
 							// SIMD: jump to next quote
 							var offset = content[i..].IndexOf(SpecialChars.Quote);
-							if (offset < 0) goto done;
+							if (offset < 0)
+								throw new FormatException("Unterminated quoted value — expected closing '\"'");
+
 							i += offset + 1;
 
 							// Peek ahead: "" is an escaped quote, stay in quotes
 							if (i < content.Length && content[i] == SpecialChars.Quote)
+							{
 								i++;
+							}
 							else
+							{
 								inQuotes = false;
+								wasQuoted = true;
+
+								// Validate: only whitespace, comment, or newline may follow closing quote
+								var rest = content[i..];
+								var endOffset = rest.IndexOfAny('\n', '#', ';');
+								if (endOffset < 0)
+								{
+									// EOF after closing quote
+									if (!rest.IsWhiteSpace() && rest.Length > 0)
+										throw new FormatException("Unexpected content after closing quote");
+									FlushValue(content[bufferStart..i], wasQuoted: true);
+									goto done;
+								}
+								if (!rest[..endOffset].IsWhiteSpace())
+									throw new FormatException("Unexpected content after closing quote");
+								FlushValue(content[bufferStart..(i + endOffset)], wasQuoted: true);
+								i += endOffset;
+								if (content[i] == '\n')
+								{
+									i++;
+									state = State.Data;
+								}
+								else
+								{
+									i++;
+									state = State.Comment;
+								}
+							}
 						}
 						else
 						{
 							// SIMD: jump to newline, quote, or comment
-							var offset = content[i..].IndexOfAny(s_valueDelimiters);
+							var offset = content[i..].IndexOfAny(SpecialChars.ValueDelimiters);
 							if (offset < 0)
 							{
 								// Rest of content IS the value (no trailing newline)
-								FlushValue(content[bufferStart..]);
+								FlushValue(content[bufferStart..], wasQuoted: false);
 								goto done;
 							}
 
@@ -179,14 +219,14 @@ public static class ConfigParser
 							}
 							else if (c == '\n')
 							{
-								FlushValue(content[bufferStart..i]);
+								FlushValue(content[bufferStart..i], wasQuoted: false);
 								i++;
 								bufferStart = i;
 								state = State.Data;
 							}
 							else // comment char
 							{
-								FlushValue(content[bufferStart..i]);
+								FlushValue(content[bufferStart..i], wasQuoted: false);
 								i++;
 								state = State.Comment;
 							}
@@ -198,22 +238,28 @@ public static class ConfigParser
 
 			done:
 			// Handle value at EOF without trailing newline (but not unterminated quotes)
-			if (state == State.Value && _currentKey != null && !inQuotes)
-				FlushValue(content[bufferStart..]);
+			if (state == State.Value && _currentKey != null && !inQuotes && !wasQuoted)
+				FlushValue(content[bufferStart..], wasQuoted: false);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private void FlushValue(ReadOnlySpan<char> raw)
+		private void FlushValue(ReadOnlySpan<char> raw, bool wasQuoted)
 		{
+			if (_sectionDict is null)
+			{
+				_sectionDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				Config[_currentSection] = _sectionDict;
+			}
+
 			var trimmed = raw.Trim();
 			string value;
 
-			if (trimmed.Length >= 2 && trimmed[0] == SpecialChars.Quote && trimmed[^1] == SpecialChars.Quote)
+			if (wasQuoted && trimmed.Length >= 2
+				&& trimmed[0] == SpecialChars.Quote && trimmed[^1] == SpecialChars.Quote)
 			{
 				var inner = trimmed[1..^1];
-				// Only allocate the Replace when there are actually escaped quotes
 				value = inner.IndexOf("\"\"") >= 0
-					? inner.ToString().Replace("\"\"", "\"")
+					? UnescapeQuotes(inner)
 					: inner.ToString();
 			}
 			else
@@ -223,6 +269,35 @@ public static class ConfigParser
 
 			_sectionDict[_currentKey!] = value;
 			_currentKey = null;
+		}
+
+		private static string UnescapeQuotes(ReadOnlySpan<char> inner)
+		{
+			// Count escaped pairs to determine output length
+			int escapedCount = 0;
+			for (int j = 0; j < inner.Length - 1; j++)
+			{
+				if (inner[j] == '"' && inner[j + 1] == '"')
+				{
+					escapedCount++;
+					j++;
+				}
+			}
+
+			int outputLen = inner.Length - escapedCount;
+			Span<char> buffer = outputLen <= 256
+				? stackalloc char[outputLen]
+				: new char[outputLen];
+
+			int di = 0;
+			for (int si = 0; si < inner.Length; si++)
+			{
+				buffer[di++] = inner[si];
+				if (inner[si] == '"' && si + 1 < inner.Length && inner[si + 1] == '"')
+					si++;
+			}
+
+			return new string(buffer);
 		}
 	}
 }

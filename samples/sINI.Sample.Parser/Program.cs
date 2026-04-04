@@ -1,6 +1,8 @@
-﻿var configContent = await File.ReadAllTextAsync("some.config");
+﻿using sINI;
 
-var config = ConfigParser.Parse(configContent.AsSpan());
+var configContent = await File.ReadAllTextAsync("some.config");
+
+var config = ConfigParser.Parse(configContent);
 
 foreach (var section in config)
 {
