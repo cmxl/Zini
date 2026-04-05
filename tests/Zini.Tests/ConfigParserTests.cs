@@ -19,14 +19,14 @@ public class ConfigParserTests
 	public void Parse_EmptyInput_ReturnsEmptyDictionary()
 	{
 		var result = ConfigParser.Parse("");
-		Assert.Empty(result);
+		Assert.Equal(0, result.Count);
 	}
 
 	[Fact]
 	public void Parse_WhitespaceOnly_ReturnsEmptyDictionary()
 	{
 		var result = ConfigParser.Parse("   \n\t\n  ");
-		Assert.Empty(result);
+		Assert.Equal(0, result.Count);
 	}
 
 	// ── String overload (#11) ──────────────────────────────────────
@@ -57,7 +57,7 @@ public class ConfigParserTests
 	{
 		var result = ConfigParser.Parse("[Section]\nkey = val");
 
-		Assert.False(result.ContainsKey(""));
+		Assert.False(result.ContainsSection(""));
 	}
 
 	// ── Lazy global section (#8) ───────────────────────────────────
@@ -68,7 +68,7 @@ public class ConfigParserTests
 		// When no global keys exist, the empty section should not appear
 		var result = ConfigParser.Parse("[A]\nx = 1\n[B]\ny = 2");
 
-		Assert.False(result.ContainsKey(""));
+		Assert.False(result.ContainsSection(""));
 		Assert.Equal(2, result.Count);
 	}
 
@@ -88,7 +88,7 @@ public class ConfigParserTests
 	{
 		var result = ConfigParser.Parse("[server]\nhost = a\n\n[Server]\nport = 80");
 
-		Assert.Single(result);
+		Assert.Equal(1, result.Count);
 		Assert.Equal("a", result["server"]["host"]);
 		Assert.Equal("80", result["server"]["port"]);
 	}
@@ -263,7 +263,7 @@ public class ConfigParserTests
 
 		// The section was registered during parsing but has no keys
 		// With lazy creation in ConfigSectionOpen, it IS registered
-		Assert.True(result.ContainsKey("Empty"));
+		Assert.True(result.ContainsSection("Empty"));
 		Assert.Empty(result["Empty"]);
 	}
 
@@ -281,11 +281,11 @@ public class ConfigParserTests
 	// ── FrozenDictionary immutability (#12) ────────────────────────
 
 	[Fact]
-	public void Parse_ReturnsFrozenDictionaries_CannotCastToMutable()
+	public void Parse_ReturnsConfigDocument_WithFrozenSections()
 	{
 		var result = ConfigParser.Parse("[S]\nk = v");
 
-		Assert.IsAssignableFrom<FrozenDictionary<string, IReadOnlyDictionary<string, string>>>(result);
+		Assert.IsType<ConfigDocument>(result);
 		Assert.IsAssignableFrom<FrozenDictionary<string, string>>(result["S"]);
 	}
 

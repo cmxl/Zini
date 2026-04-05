@@ -30,7 +30,7 @@ public class ConfigParserBenchmarks
 	// --- Small config (typical single-component config) ---
 
 	[Benchmark(Description = "Zini"), BenchmarkCategory("Small")]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Small_Zini()
+	public ConfigDocument Small_Zini()
 		=> ConfigParser.Parse(_smallConfig);
 
 	[Benchmark(Description = "ini-parser", Baseline = true), BenchmarkCategory("Small")]
@@ -40,7 +40,7 @@ public class ConfigParserBenchmarks
 	// --- Medium config (realistic application config) ---
 
 	[Benchmark(Description = "Zini"), BenchmarkCategory("Medium")]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Medium_Zini()
+	public ConfigDocument Medium_Zini()
 		=> ConfigParser.Parse(_mediumConfig);
 
 	[Benchmark(Description = "ini-parser", Baseline = true), BenchmarkCategory("Medium")]
@@ -50,7 +50,7 @@ public class ConfigParserBenchmarks
 	// --- Large config (stress test) ---
 
 	[Benchmark(Description = "Zini"), BenchmarkCategory("Large")]
-	public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Large_Zini()
+	public ConfigDocument Large_Zini()
 		=> ConfigParser.Parse(_largeConfig);
 
 	[Benchmark(Description = "ini-parser", Baseline = true), BenchmarkCategory("Large")]

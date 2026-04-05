@@ -26,10 +26,10 @@ dotnet run -c Release --project benchmarks/Zini.Benchmarks/Zini.Benchmarks.cspro
 
 ```
 src/
-  Zini/                          — Core parser library (zero dependencies)
+  Zini/                          — Core parser and writer library (zero dependencies)
   Zini.Configuration/            — IConfigurationBuilder extension (AddConfigFile)
 tests/
-  Zini.Tests/                    — xUnit tests for ConfigParser
+  Zini.Tests/                    — xUnit tests for ConfigParser, ConfigWriter, and round-trip
 samples/
   Zini.Sample.Parser/            — Console app using ConfigParser directly
   Zini.Sample.Configuration/     — Console app using ConfigurationBuilder
@@ -51,14 +51,17 @@ All types in the core library are in the `Zini` namespace. Internal types (`Stat
 
 **`ConfigParser.cs`** — Static `Parse(string)` and `Parse(ReadOnlySpan<char>)` overloads driving a state machine inside a `ref struct ParseContext`. Each parser state (`Data`, `ConfigSectionOpen`, `ConfigSectionClose`, `Key`, `Value`, `Comment`) has its own handler block in a `switch` over `State`. The design is zero-allocation on the hot path — all scanning uses `SearchValues<char>` for SIMD-accelerated bulk character search (`IndexOfAny`, `IndexOfAnyExcept`). Returns `FrozenDictionary` instances for true immutability. Uses `Dictionary.GetAlternateLookup<ReadOnlySpan<char>>()` to avoid string allocations on section cache hits.
 
+**`ConfigDocument.cs`** — Immutable wrapper returned by `ConfigParser.Parse`. Provides typed access via indexer (`doc["Section"]["key"]`), safe lookups (`GetValue`, `GetGlobalValue`, `GetSection`), and metadata (`SectionNames`, `HasGlobalKeys`, `ContainsSection`, `Count`). Wraps `FrozenDictionary` instances internally.
+
+**`ConfigWriter.cs`** — Static `Write` and `WriteAsync` methods that serialize a `ConfigDocument` back to INI text. Smart quoting: values are only wrapped in `"..."` when they contain comment chars (`#`, `;`), quotes (`"`), or leading/trailing whitespace. Internal quotes are escaped as `""`. Sections are separated by blank lines.
+
 **Key behaviors:**
 - Sections are case-insensitive and merge on duplicate names (last-write-wins for keys)
 - Global keys (before any section) go under the empty-string key `""`; the global section is created on demand and omitted if no global keys exist
 - Quoted values (`"..."`) preserve whitespace and comment chars; `""` inside quotes escapes to `"`
 - Inline comments (`#` or `;`) are stripped from unquoted values
 - `FormatException` thrown for: `#`/`;` inside section names, mid-value `"`, unterminated quoted values, unclosed section brackets, and content after closing quote
-
-**Output type:** `IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>` — outer key is section name, inner dict is key-value pairs. Both levels use `OrdinalIgnoreCase`.
+- Parse → Write → Parse round-trips are lossless for all value types
 
 ### Configuration provider (`src/Zini.Configuration`)
 

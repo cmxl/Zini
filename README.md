@@ -5,7 +5,8 @@ A high-performance, zero-allocation INI-style configuration file parser for .NET
 ## Features
 
 - **Zero-allocation hot path** — uses `SearchValues<char>` for SIMD-accelerated parsing
-- **Immutable output** — returns `FrozenDictionary` instances
+- **Immutable output** — returns `ConfigDocument` backed by `FrozenDictionary` instances
+- **Round-trip support** — `ConfigWriter` serializes back to INI with smart quoting and quote escaping
 - **Case-insensitive** sections and keys with `OrdinalIgnoreCase` comparison
 - **Section merging** — duplicate sections merge automatically (last-write-wins for keys)
 - **Quoted values** — preserves whitespace and comment characters inside `"..."`
@@ -31,7 +32,7 @@ dotnet add package Zini.Configuration  # IConfigurationBuilder support
 ```csharp
 using Zini;
 
-var config = ConfigParser.Parse("""
+var doc = ConfigParser.Parse("""
     # Application settings
     app_name = MyApp
 
@@ -43,9 +44,30 @@ var config = ConfigParser.Parse("""
     connection = "Server=db;Port=5432;User=""admin"""
     """);
 
-// Access values
-var host = config["Server"]["host"];       // "localhost"
-var appName = config[""]["app_name"];       // "MyApp" (global section)
+// Indexer access
+var host = doc["Server"]["host"];           // "localhost"
+
+// Safe access (returns null if missing)
+var port = doc.GetValue("Server", "port");  // "8080"
+var appName = doc.GetGlobalValue("app_name"); // "MyApp"
+
+// Metadata
+doc.SectionNames           // ["Server", "Database"]
+doc.HasGlobalKeys          // true
+doc.ContainsSection("Server") // true
+```
+
+### Writing Back to INI
+
+```csharp
+var doc = ConfigParser.Parse(input);
+
+// Write to string
+var output = ConfigWriter.Write(doc);
+
+// Write to TextWriter (sync or async)
+ConfigWriter.Write(textWriter, doc);
+await ConfigWriter.WriteAsync(streamWriter, doc);
 ```
 
 ### With Microsoft.Extensions.Configuration

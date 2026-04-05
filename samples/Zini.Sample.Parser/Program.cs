@@ -1,13 +1,23 @@
-﻿using Zini;
+using Zini;
 
 var configContent = await File.ReadAllTextAsync("sample.ini");
 
 var config = ConfigParser.Parse(configContent);
 
-foreach (var section in config)
+if (config.HasGlobalKeys)
 {
-	Console.WriteLine(section.Key.Length == 0 ? "[Global]" : $"[{section.Key}]");
-	foreach (var kvp in section.Value)
+	Console.WriteLine("[Global]");
+	foreach (var kvp in config.GetSection(string.Empty)!)
+	{
+		Console.WriteLine($"{kvp.Key} = {kvp.Value}");
+	}
+	Console.WriteLine();
+}
+
+foreach (var section in config.SectionNames)
+{
+	Console.WriteLine($"[{section}]");
+	foreach (var kvp in config.GetSection(section)!)
 	{
 		Console.WriteLine($"{kvp.Key} = {kvp.Value}");
 	}

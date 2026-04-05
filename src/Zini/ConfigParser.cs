@@ -5,19 +5,20 @@ namespace Zini;
 
 public static class ConfigParser
 {
-	public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Parse(string content)
+	public static ConfigDocument Parse(string content)
 		=> Parse(content.AsSpan());
 
-	public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Parse(ReadOnlySpan<char> content)
+	public static ConfigDocument Parse(ReadOnlySpan<char> content)
 	{
 		var ctx = new ParseContext();
 		ctx.Execute(content);
 
-		// Freeze all dictionaries for true immutability
-		return ctx.Config.ToFrozenDictionary(
+		var frozen = ctx.Config.ToFrozenDictionary(
 			kvp => kvp.Key,
 			kvp => (IReadOnlyDictionary<string, string>)kvp.Value.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase),
 			StringComparer.OrdinalIgnoreCase);
+
+		return new ConfigDocument(frozen);
 	}
 
 	private ref struct ParseContext

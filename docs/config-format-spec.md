@@ -131,17 +131,19 @@ greeting = "she said ""hello"" to me"   # value: she said "hello" to me
 
 ## Output Format
 
-`ConfigParser.Parse` returns:
+`ConfigParser.Parse` returns a `ConfigDocument` — an immutable object wrapping the parsed sections and their key-value pairs. Both section names and keys use `OrdinalIgnoreCase` comparison.
 
+```csharp
+ConfigDocument doc = ConfigParser.Parse(input);
+
+doc["Server"]["host"]            // indexer access (throws on missing)
+doc.GetValue("Server", "host")   // safe access (returns null on missing)
+doc.GetGlobalValue("app_name")   // shorthand for GetValue("", key)
+doc.SectionNames                 // all section names (excludes global)
+doc.HasGlobalKeys                // true if keys exist outside any section
+doc.ContainsSection("Server")    // check if a section exists
+doc.Count                        // total number of sections (including global if present)
 ```
-IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>
-```
-
-- **Outer key**: section name (empty string `""` for global keys)
-- **Inner key**: property key
-- **Inner value**: property value
-
-Both dictionaries use `OrdinalIgnoreCase` comparison.
 
 ## Error Handling
 

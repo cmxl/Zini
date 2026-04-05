@@ -9,20 +9,20 @@ public class ConfigFileConfigurationProvider(ConfigFileConfigurationSource sourc
 	{
 		using var reader = new StreamReader(stream);
 		var content = reader.ReadToEnd();
-		var parsed = ConfigParser.Parse(content.AsSpan());
+		var doc = ConfigParser.Parse(content.AsSpan());
 
 		var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
-		foreach (var section in parsed)
+		if (doc.HasGlobalKeys)
 		{
-			foreach (var kvp in section.Value)
-			{
-				var key = section.Key.Length == 0
-					? kvp.Key
-					: ConfigurationPath.Combine(section.Key, kvp.Key);
+			foreach (var kvp in doc.GetSection(string.Empty)!)
+				data[kvp.Key] = kvp.Value;
+		}
 
-				data[key] = kvp.Value;
-			}
+		foreach (var section in doc.SectionNames)
+		{
+			foreach (var kvp in doc.GetSection(section)!)
+				data[ConfigurationPath.Combine(section, kvp.Key)] = kvp.Value;
 		}
 
 		Data = data;
