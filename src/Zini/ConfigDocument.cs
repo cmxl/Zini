@@ -4,23 +4,37 @@ namespace Zini;
 
 public sealed class ConfigDocument
 {
-	private readonly FrozenDictionary<string, IReadOnlyDictionary<string, string>> _sections;
+	private readonly FrozenDictionary<string, FrozenDictionary<string, string>> _sections;
+	private readonly string[] _sectionNames;
 
-	internal ConfigDocument(FrozenDictionary<string, IReadOnlyDictionary<string, string>> sections)
+	internal ConfigDocument(FrozenDictionary<string, FrozenDictionary<string, string>> sections)
 	{
 		_sections = sections;
+
+		int count = 0;
+		foreach (var key in sections.Keys)
+			if (key.Length > 0) count++;
+
+		var names = new string[count];
+		int i = 0;
+		foreach (var key in sections.Keys)
+			if (key.Length > 0) names[i++] = key;
+
+		_sectionNames = names;
 	}
 
-	public IReadOnlyDictionary<string, string> this[string section] => _sections[section];
+	public FrozenDictionary<string, string> this[string section] => _sections[section];
 
-	public IEnumerable<string> SectionNames => _sections.Keys.Where(k => k.Length > 0);
+	public ReadOnlySpan<string> SectionNames => _sectionNames;
+
+	internal string[] SectionNamesArray => _sectionNames;
 
 	public bool HasGlobalKeys => _sections.ContainsKey(string.Empty);
 
 	public int Count => _sections.Count;
 
-	public IReadOnlyDictionary<string, string>? GetSection(string section)
-		=> _sections.GetValueOrDefault(section);
+	public FrozenDictionary<string, string>? GetSection(string section)
+		=> _sections.TryGetValue(section, out var s) ? s : null;
 
 	public string? GetValue(string section, string key)
 		=> _sections.TryGetValue(section, out var s) && s.TryGetValue(key, out var v) ? v : null;

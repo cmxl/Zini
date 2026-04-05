@@ -15,7 +15,7 @@ public static class ConfigParser
 
 		var frozen = ctx.Config.ToFrozenDictionary(
 			kvp => kvp.Key,
-			kvp => (IReadOnlyDictionary<string, string>)kvp.Value.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase),
+			kvp => kvp.Value.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase),
 			StringComparer.OrdinalIgnoreCase);
 
 		return new ConfigDocument(frozen);

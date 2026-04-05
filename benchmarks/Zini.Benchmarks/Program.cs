@@ -1,3 +1,3 @@
 using BenchmarkDotNet.Running;
 
-BenchmarkRunner.Run<ConfigParserBenchmarks>();
+BenchmarkSwitcher.FromAssembly(typeof(ConfigParserBenchmarks).Assembly).Run(args);
